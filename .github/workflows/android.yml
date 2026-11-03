@@ -1,0 +1,70 @@
+name: Android ARM64 NEON
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android-arm64:
+    name: Android ARM64 (NEON)
+    runs-on: ubuntu-24.04
+    env:
+      ANDROID_NDK_VERSION: 27.2.12479018
+      ANDROID_API_LEVEL: 24
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: sdkmanager --install "ndk;${ANDROID_NDK_VERSION}"
+
+      - name: Build Android ARM64 engine
+        working-directory: src
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          NDK="${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}"
+          TOOLCHAIN="${NDK}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          CXX="${TOOLCHAIN}/aarch64-linux-android${ANDROID_API_LEVEL}-clang++"
+
+          if [[ ! -x "${CXX}" ]]; then
+            echo "Android NDK compiler not found: ${CXX}" >&2
+            exit 1
+          fi
+
+          # Smallbrain embeds its NNUE network from this source file using
+          # incbin; no separate network download or runtime file is needed.
+          NETWORK="nn-7e82d78ef76a870-450.nnue"
+          if [[ ! -s "${NETWORK}" ]]; then
+            echo "Required embedded NNUE network is missing: src/${NETWORK}" >&2
+            exit 1
+          fi
+
+          make clean
+          make -j2 build=android-arm64 CXX="${CXX}"
+
+          test -s ./smallbrain-android-arm64
+          "${TOOLCHAIN}/llvm-readelf" -h ./smallbrain-android-arm64
+          "${TOOLCHAIN}/llvm-strip" --strip-unneeded ./smallbrain-android-arm64
+
+      - name: Upload Android ARM64 binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: smallbrain-android-arm64-neon
+          path: src/smallbrain-android-arm64
+          if-no-files-found: error
