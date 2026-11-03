@@ -80,6 +80,16 @@ ifeq ($(build), x86-64-vnni512)
 	INSTRUCTIONS = $(INSTRUCTIONS_BMI2) -mavx512vnni -mavx512dq -mavx512vl
 endif
 
+# Android AArch64 build. Advanced SIMD (NEON) is part of the AArch64
+# baseline; enable it explicitly while keeping the binary compatible with
+# generic ARMv8-A devices rather than tuning for one specific phone CPU.
+ifeq ($(build), android-arm64)
+	NATIVE       = -march=armv8-a+simd
+	INSTRUCTIONS =
+	CXXFLAGS    += -fPIE -pthread
+	LDFLAGS      = -pthread -static-libstdc++ -pie
+endif
+
 # Different native flag for macOS
 ifeq ($(uname_S), Darwin)
 	NATIVE  = -mcpu=apple-a14	
@@ -149,7 +159,7 @@ $(TARGET): $(OBJECTS)
 	$(CXX) $(CXXFLAGS) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -o $(EXE) $^ $(LDFLAGS)
 
 $(TMPDIR)/%.o: %.cpp | $(TMPDIR)
-	$(CXX) $(CXXFLAGS) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -c $< -o $@ $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) $(NATIVE) $(INSTRUCTIONS) -MMD -MP -c $< -o $@
 
 $(TMPDIR):
 	$(MKDIR) "$(TMPDIR)" "$(TMPDIR)/src" "$(TMPDIR)/syzygy" "$(TMPDIR)/syzygy/Fathom" "$(TMPDIR)/syzygy/Fathom/src" "$(TMPDIR)/tests"
