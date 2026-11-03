@@ -28,6 +28,10 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The legacy SDK "tools" package has been withdrawn by Google.
+          # setup-android already installs the command-line tools (sdkmanager).
+          packages: 'platform-tools'
 
       - name: Install Android NDK
         run: sdkmanager --install "ndk;${ANDROID_NDK_VERSION}"
